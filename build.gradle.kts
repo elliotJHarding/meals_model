@@ -71,7 +71,7 @@ val generateTypeScript by tasks.registering(GenerateTask::class) {
     ))
 
     additionalProperties.set(mapOf(
-        "npmName" to "@harding/meals-api",
+        "npmName" to "@elliotJHarding/meals-api",
         "npmVersion" to project.version.toString(),
         "snapshot" to "false"
     ))
@@ -142,7 +142,7 @@ val prepareTypeScriptPackage by tasks.registering(Copy::class) {
         // Create .npmrc for GitHub Packages authentication
         val npmrc = layout.buildDirectory.file("typescript-package/.npmrc").get().asFile
         npmrc.writeText("""
-            @harding:registry=https://npm.pkg.github.com
+            @elliotJHarding:registry=https://npm.pkg.github.com
             //npm.pkg.github.com/:_authToken=${'$'}{NODE_AUTH_TOKEN}
         """.trimIndent())
     }

@@ -79,7 +79,7 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://npm.pkg.github.com'
-          scope: '@harding'
+          scope: '@elliotJHarding'
 
       - name: Build TypeScript package
         working-directory: build/typescript-package

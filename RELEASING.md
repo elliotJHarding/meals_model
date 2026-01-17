@@ -39,7 +39,7 @@ The current development version is always `X.Y.Z-SNAPSHOT` in `build.gradle.kts`
 
    **meals_web_client** (package.json):
    ```json
-   "@harding/meals-api": "1.0.0"
+   "@elliotJHarding/meals-api": "1.0.0"
    ```
 
 ## What Happens Automatically
