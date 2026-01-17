@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.harding.meals"
-version = "1.1.0"
+version = "1.0.0-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -165,7 +165,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
             groupId = "com.harding.meals"
-            artifactId = "meals-contract"
+            artifactId = "meals-api"
             version = project.version.toString()
         }
     }
