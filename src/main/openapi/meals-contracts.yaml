@@ -1,0 +1,1197 @@
+openapi: 3.0.3
+info:
+  title: Meals Unified API
+  version: 1.0.0
+  description: Complete API specification for meal planning application - includes frontend and AI endpoints
+
+servers:
+  - url: http://localhost:8090/api
+    description: Local development (backend)
+  - url: https://grubplanner.co.uk/api
+    description: Production (backend)
+  - url: http://localhost:8000
+    description: Local development (AI service)
+  - url: https://ai.grubplanner.co.uk
+    description: Production (AI service)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Google OAuth access token
+
+  schemas:
+    # Enums
+    Effort:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+      description: Meal preparation effort level
+
+    Longevity:
+      type: string
+      enum:
+        - CUPBOARD
+        - FRESH
+        - FREEZER
+      description: Ingredient storage type
+
+    # Core Domain Models
+    ImageDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+
+    UnitDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          description: Unit code (e.g., "tsp", "cup")
+        shortStem:
+          type: string
+        shortSpace:
+          type: boolean
+        shortPluralise:
+          type: boolean
+        longStem:
+          type: string
+        longSpace:
+          type: boolean
+        longPluralise:
+          type: boolean
+
+    IngredientMetadataDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        longevity:
+          $ref: '#/components/schemas/Longevity'
+
+    IngredientDto:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+        unit:
+          $ref: '#/components/schemas/UnitDto'
+        index:
+          type: integer
+          format: int64
+        metadata:
+          $ref: '#/components/schemas/IngredientMetadataDto'
+
+    RecipeDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+        title:
+          type: string
+        image:
+          $ref: '#/components/schemas/ImageDto'
+
+    MealTag:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+
+    MealDto:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        effort:
+          $ref: '#/components/schemas/Effort'
+        image:
+          $ref: '#/components/schemas/ImageDto'
+        description:
+          type: string
+        serves:
+          type: integer
+          format: int32
+        prepTimeMinutes:
+          type: integer
+          format: int32
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientDto'
+        recipe:
+          $ref: '#/components/schemas/RecipeDto'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealTag'
+
+    # Plan Models
+    PlanMealDto:
+      type: object
+      required:
+        - meal
+        - requiredServings
+      properties:
+        id:
+          type: integer
+          format: int64
+        meal:
+          $ref: '#/components/schemas/MealDto'
+        requiredServings:
+          type: integer
+          format: int32
+        note:
+          type: string
+        leftovers:
+          type: boolean
+          default: false
+
+    ShoppingListItemDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        ingredient:
+          $ref: '#/components/schemas/IngredientDto'
+        checked:
+          type: boolean
+          default: false
+
+    PlanDto:
+      type: object
+      required:
+        - date
+      properties:
+        id:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        note:
+          type: string
+        planMeals:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanMealDto'
+          default: []
+        shoppingListItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShoppingListItemDto'
+          default: []
+
+    # Calendar Models
+    CalendarEventDto:
+      type: object
+      required:
+        - name
+        - time
+      properties:
+        name:
+          type: string
+        time:
+          type: string
+          format: date-time
+        colour:
+          type: string
+        textColour:
+          type: string
+        allDay:
+          type: boolean
+          default: false
+
+    # Frontend-specific schemas
+    Calendar:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        colour:
+          type: string
+        textColour:
+          type: string
+        active:
+          type: boolean
+          default: false
+
+    AppUserDto:
+      type: object
+      properties:
+        name:
+          type: string
+        pictureUrl:
+          type: string
+        familyName:
+          type: string
+        givenName:
+          type: string
+
+    FamilyGroupDto:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppUserDto'
+
+    LoginRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Google OAuth token
+
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/AppUserDto'
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+        tokenType:
+          type: string
+          default: Bearer
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+        tokenType:
+          type: string
+          default: Bearer
+
+    ImageSearchResponse:
+      type: object
+      properties:
+        imageUrls:
+          type: array
+          items:
+            type: string
+
+    UnitsEmbedded:
+      type: object
+      properties:
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnitDto'
+
+    UnitsResponse:
+      type: object
+      properties:
+        _embedded:
+          $ref: '#/components/schemas/UnitsEmbedded'
+
+    # AI-specific schemas
+    IngredientStorageType:
+      type: string
+      enum:
+        - CUPBOARD
+        - FRESH
+      description: Storage type for ingredient metadata
+
+    ChatRole:
+      type: string
+      enum:
+        - user
+        - assistant
+      description: Chat message role
+
+    ParseRecipeRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: URL of the recipe webpage to parse
+
+    ParsedIngredient:
+      type: object
+      required:
+        - name
+        - isWellFormed
+        - rawText
+      properties:
+        name:
+          type: string
+        amount:
+          type: string
+        unit:
+          type: string
+        isWellFormed:
+          type: boolean
+          description: Whether the ingredient was successfully parsed
+        rawText:
+          type: string
+          description: Original ingredient text
+
+    ParseRecipeResponse:
+      type: object
+      required:
+        - url
+        - ingredients
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        totalTimeMinutes:
+          type: integer
+          format: int32
+        effort:
+          $ref: '#/components/schemas/Effort'
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParsedIngredient'
+        url:
+          type: string
+
+    ParseIngredientRequest:
+      type: object
+      required:
+        - ingredientString
+      properties:
+        ingredientString:
+          type: string
+          description: "Raw ingredient string (e.g., '2 1/2 cups flour')"
+
+    ParseIngredientResponse:
+      type: object
+      required:
+        - name
+        - isWellFormed
+        - rawText
+      properties:
+        name:
+          type: string
+        amount:
+          type: string
+        unit:
+          type: string
+        isWellFormed:
+          type: boolean
+          description: Whether the ingredient was successfully parsed
+        rawText:
+          type: string
+          description: Original ingredient text
+
+    IngredientMetadataRequest:
+      type: object
+      required:
+        - ingredientName
+      properties:
+        ingredientName:
+          type: string
+          description: Name of the ingredient to get metadata for
+
+    IngredientMetadataResponse:
+      type: object
+      required:
+        - ingredientName
+        - storageType
+      properties:
+        ingredientName:
+          type: string
+        storageType:
+          $ref: '#/components/schemas/IngredientStorageType'
+        description:
+          type: string
+          description: Additional storage information
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        content:
+          type: string
+
+    SuggestedMeal:
+      type: object
+      required:
+        - mealName
+        - mealId
+        - rank
+      properties:
+        mealName:
+          type: string
+        mealId:
+          type: integer
+          format: int64
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Ranking of the suggestion (1 is best)
+        suitabilityScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: AI-computed suitability score
+
+    DayMealPlanChatRequest:
+      type: object
+      required:
+        - dayOfWeek
+        - calendarEvents
+        - availableMeals
+      properties:
+        dayOfWeek:
+          type: string
+          format: date
+          description: The day to plan for
+        calendarEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarEventDto'
+          description: Calendar events for the day
+        currentWeekPlan:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanDto'
+          description: Current meal plan for the week
+        recentMealPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanDto'
+          description: Recent meal plans for variety
+        availableMeals:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealDto'
+          description: All available meals to suggest from
+        conversationHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          description: Chat history for context
+        chatContext:
+          type: object
+          additionalProperties: true
+          description: Persistent context for the conversation
+
+    DayMealPlanChatResponse:
+      type: object
+      required:
+        - suggestions
+        - reasoning
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuggestedMeal'
+          description: Ranked meal suggestions (3-5 suggestions)
+          minItems: 1
+          maxItems: 5
+        reasoning:
+          type: string
+          description: Explanation of why these meals were suggested
+        conversationComplete:
+          type: boolean
+          default: false
+          description: Whether the conversation is complete
+        updatedChatContext:
+          type: object
+          additionalProperties: true
+          description: Updated context if AI identified important preferences
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      operationId: login
+      tags:
+        - Authentication
+      summary: Login with Google OAuth token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LoginResponse'
+                  - $ref: '#/components/schemas/AppUserDto'
+        '401':
+          description: Unauthorized
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags:
+        - Authentication
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Unauthorized
+
+  /auth/whoami:
+    get:
+      operationId: whoAmI
+      tags:
+        - Authentication
+      summary: Get current user information
+      responses:
+        '200':
+          description: Current user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUserDto'
+        '401':
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags:
+        - Authentication
+      summary: Logout and revoke tokens
+      responses:
+        '200':
+          description: Logged out successfully
+        '204':
+          description: Logged out successfully
+
+  # Meal Endpoints
+  /meals:
+    get:
+      operationId: getAllMeals
+      tags:
+        - Meals
+      summary: Get all meals for user/family
+      responses:
+        '200':
+          description: List of meals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MealDto'
+
+    post:
+      operationId: createMeal
+      tags:
+        - Meals
+      summary: Create a new meal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealDto'
+      responses:
+        '200':
+          description: Created meal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealDto'
+
+  /meals/{id}:
+    get:
+      operationId: getMealById
+      tags:
+        - Meals
+      summary: Get meal by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Meal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealDto'
+        '404':
+          description: Meal not found
+
+    put:
+      operationId: updateMeal
+      tags:
+        - Meals
+      summary: Update an existing meal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealDto'
+      responses:
+        '200':
+          description: Updated meal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealDto'
+        '204':
+          description: Meal updated
+        '404':
+          description: Meal not found
+
+    delete:
+      operationId: deleteMeal
+      tags:
+        - Meals
+      summary: Delete a meal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Meal deleted
+        '404':
+          description: Meal not found
+
+  # Plan Endpoints
+  /plans/{start}/{end}:
+    get:
+      operationId: getPlansInRange
+      tags:
+        - Plans
+      summary: Get plans for date range
+      parameters:
+        - name: start
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanDto'
+
+  /plans:
+    post:
+      operationId: createPlan
+      tags:
+        - Plans
+      summary: Create a new plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanDto'
+      responses:
+        '200':
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDto'
+
+  /plans/{id}:
+    put:
+      operationId: updatePlan
+      tags:
+        - Plans
+      summary: Update an existing plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanDto'
+      responses:
+        '200':
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDto'
+        '204':
+          description: Plan updated
+        '404':
+          description: Plan not found
+
+  /plans/{date}:
+    delete:
+      operationId: deletePlanByDate
+      tags:
+        - Plans
+      summary: Delete plan by date
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '204':
+          description: Plan deleted
+        '404':
+          description: Plan not found
+
+  /plans/shoppingList:
+    post:
+      operationId: updateShoppingList
+      tags:
+        - Plans
+      summary: Bulk update shopping list items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShoppingListItemDto'
+      responses:
+        '200':
+          description: Shopping list updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShoppingListItemDto'
+
+  # Tag Endpoints
+  /tags:
+    get:
+      operationId: getAllTags
+      tags:
+        - Tags
+      summary: Get all meal tags
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MealTag'
+
+  # Calendar Endpoints
+  /calendar/authorize:
+    get:
+      operationId: getCalendarAuthUrl
+      tags:
+        - Calendar
+      summary: Get Google Calendar authorization URL
+      responses:
+        '200':
+          description: Authorization URL
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /calendar/link:
+    post:
+      operationId: linkCalendar
+      tags:
+        - Calendar
+      summary: Link Google Calendar with authorization code
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: Authorization code from Google OAuth
+      responses:
+        '200':
+          description: Calendar linked successfully
+        '204':
+          description: Calendar linked successfully
+
+  /calendar/events/{start}/{end}:
+    get:
+      operationId: getCalendarEvents
+      tags:
+        - Calendar
+      summary: Get calendar events for date range
+      parameters:
+        - name: start
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Calendar events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CalendarEventDto'
+
+  /calendar:
+    get:
+      operationId: getAllCalendars
+      tags:
+        - Calendar
+      summary: Get all user calendars
+      responses:
+        '200':
+          description: List of calendars
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Calendar'
+
+  /calendar/authorized:
+    get:
+      operationId: isCalendarAuthorized
+      tags:
+        - Calendar
+      summary: Check if calendar is authorized
+      responses:
+        '200':
+          description: Authorization status
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+  /calendar/active:
+    post:
+      operationId: updateActiveCalendars
+      tags:
+        - Calendar
+      summary: Update active calendars
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Calendar'
+      responses:
+        '200':
+          description: Active calendars updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Calendar'
+
+  # Family Group Endpoints
+  /familyGroup:
+    get:
+      operationId: getFamilyGroup
+      tags:
+        - FamilyGroup
+      summary: Get user's family group
+      responses:
+        '200':
+          description: Family group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyGroupDto'
+
+    post:
+      operationId: createFamilyGroup
+      tags:
+        - FamilyGroup
+      summary: Create a new family group
+      responses:
+        '200':
+          description: Created family group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyGroupDto'
+
+  /familyGroup/{uuid}:
+    post:
+      operationId: joinFamilyGroup
+      tags:
+        - FamilyGroup
+      summary: Join an existing family group
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Joined family group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyGroupDto'
+
+  # Image Search Endpoint
+  /images/search:
+    get:
+      operationId: searchImages
+      tags:
+        - Images
+      summary: Search for meal images
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageSearchResponse'
+
+  # Units Endpoint (Spring Data REST)
+  /units:
+    get:
+      operationId: getUnits
+      tags:
+        - Units
+      summary: Get all measurement units
+      responses:
+        '200':
+          description: Units response with _embedded structure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitsResponse'
+
+  # AI Service Endpoints
+  /parse-recipe:
+    post:
+      operationId: parseRecipe
+      tags:
+        - Recipe Parsing
+      summary: Parse a recipe from a URL
+      description: Extracts recipe details including title, ingredients, and preparation info from a webpage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseRecipeRequest'
+      responses:
+        '200':
+          description: Successfully parsed recipe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseRecipeResponse'
+        '400':
+          description: Invalid URL
+        '500':
+          description: Parsing failed
+
+  /parse-ingredient:
+    post:
+      operationId: parseIngredient
+      tags:
+        - Ingredient Parsing
+      summary: Parse an ingredient string
+      description: Parses a natural language ingredient string into structured components
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseIngredientRequest'
+      responses:
+        '200':
+          description: Successfully parsed ingredient
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseIngredientResponse'
+        '400':
+          description: Invalid request
+        '500':
+          description: Parsing failed
+
+  /ingredient-metadata:
+    post:
+      operationId: getIngredientMetadata
+      tags:
+        - Ingredient Metadata
+      summary: Get metadata for an ingredient
+      description: Uses AI to determine storage type and other metadata for an ingredient
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngredientMetadataRequest'
+      responses:
+        '200':
+          description: Successfully retrieved metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientMetadataResponse'
+        '401':
+          description: Unauthorized - invalid or missing OAuth token
+        '400':
+          description: Invalid request
+        '500':
+          description: Failed to get metadata
+
+  /ai/meal-plan-chat:
+    post:
+      operationId: chatMealPlanDay
+      tags:
+        - Meal Planning
+      summary: Chat-based meal planning for a specific day
+      description: Uses AI to suggest meals for a specific day based on calendar events, preferences, and available meals
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DayMealPlanChatRequest'
+      responses:
+        '200':
+          description: Successfully generated meal suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayMealPlanChatResponse'
+        '401':
+          description: Unauthorized - invalid or missing OAuth token
+        '400':
+          description: Invalid request
+        '500':
+          description: Planning failed

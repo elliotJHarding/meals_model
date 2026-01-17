@@ -1,0 +1,31 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.DS_Store
+
+# Local configuration
+local.properties
+gradle.properties
+
+# Node modules (for TypeScript package testing)
+node_modules/
+package-lock.json
+
+# Maven local testing
+.m2/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
