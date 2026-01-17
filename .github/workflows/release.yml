@@ -22,8 +22,10 @@ permissions:
   packages: write
 
 jobs:
-  release:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
 
     steps:
       - name: Checkout code
@@ -64,15 +66,59 @@ jobs:
           # Commit release version
           git add build.gradle.kts
           git commit -m "Release version $RELEASE_VERSION"
+          git push origin HEAD:main
 
       - name: Build packages
         run: ./gradlew clean build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/
+          retention-days: 1
+
+  release-maven:
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/
 
       - name: Publish Java package to GitHub Packages
         run: ./gradlew publish
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-npm:
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -81,25 +127,39 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@elliotJHarding'
 
-      - name: Build TypeScript package
+      - name: Build and publish TypeScript package
         working-directory: build/typescript-package
-        run: npm install && npm run build
-
-      - name: Publish TypeScript package to GitHub Packages
-        working-directory: build/typescript-package
-        run: npm publish
+        run: npm install && npm run build && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  finalize:
+    runs-on: ubuntu-latest
+    needs: [release-maven, release-npm]
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Create Git Tag
         run: |
-          RELEASE_VERSION="${{ steps.version.outputs.release_version }}"
+          RELEASE_VERSION="${{ needs.prepare.outputs.release_version }}"
           git tag "v$RELEASE_VERSION"
           git push origin "v$RELEASE_VERSION"
 
       - name: Bump to next SNAPSHOT version
         run: |
-          RELEASE_VERSION="${{ steps.version.outputs.release_version }}"
+          RELEASE_VERSION="${{ needs.prepare.outputs.release_version }}"
           BUMP_TYPE="${{ inputs.bump_type || 'minor' }}"
 
           # Split version into parts
