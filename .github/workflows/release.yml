@@ -51,12 +51,26 @@ jobs:
       - name: Extract and prepare release version
         id: version
         run: |
-          # Get current version from build.gradle.kts
-          CURRENT_VERSION=$(grep '^version = ' build.gradle.kts | sed 's/version = "\(.*\)"/\1/')
+          set -e
+
+          # Get current version from build.gradle.kts (handles optional leading whitespace)
+          CURRENT_VERSION=$(grep -E '^\s*version\s*=\s*"' build.gradle.kts | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "ERROR: Could not extract version from build.gradle.kts"
+            exit 1
+          fi
           echo "Current version: $CURRENT_VERSION"
 
           # Strip -SNAPSHOT to get release version
           RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+
+          # Validate version format (X.Y.Z)
+          if ! echo "$RELEASE_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: Invalid version format '$RELEASE_VERSION'. Expected X.Y.Z"
+            exit 1
+          fi
+
           echo "Release version: $RELEASE_VERSION"
           echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
 
@@ -135,9 +149,39 @@ jobs:
         working-directory: build/typescript-package
         run: npm install && npm run build && npm publish
 
+  release-python:
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build wheel
+        working-directory: build/python-package
+        run: python -m build
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheel
+          path: build/python-package/dist/*.whl
+          retention-days: 1
+
   finalize:
     runs-on: ubuntu-latest
-    needs: [release-maven, release-npm]
+    needs: [prepare, release-maven, release-npm, release-python]
     if: success()
 
     steps:
@@ -153,16 +197,48 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Download Python wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: python-wheel
+          path: dist/
+
       - name: Create Git Tag
         run: |
           RELEASE_VERSION="${{ needs.prepare.outputs.release_version }}"
           git tag "v$RELEASE_VERSION"
           git push origin "v$RELEASE_VERSION"
 
-      - name: Bump to next SNAPSHOT version
+      - name: Create GitHub Release with wheel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_VERSION="${{ needs.prepare.outputs.release_version }}"
+          gh release create "v$RELEASE_VERSION" \
+            --title "v$RELEASE_VERSION" \
+            --generate-notes \
+            dist/*.whl
+
+      - name: Bump to next SNAPSHOT version
+        run: |
+          set -e
+
+          RELEASE_VERSION="${{ needs.prepare.outputs.release_version }}"
           BUMP_TYPE="${{ inputs.bump_type || 'patch' }}"
+
+          # Validate release version before processing
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "ERROR: Release version is empty"
+            exit 1
+          fi
+
+          if ! echo "$RELEASE_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: Invalid release version format '$RELEASE_VERSION'. Expected X.Y.Z"
+            exit 1
+          fi
+
+          echo "Release version: $RELEASE_VERSION"
+          echo "Bump type: $BUMP_TYPE"
 
           # Split version into parts
           IFS='.' read -r MAJOR MINOR PATCH <<< "$RELEASE_VERSION"
@@ -181,6 +257,12 @@ jobs:
 
           NEXT_VERSION="$MAJOR.$MINOR.$PATCH-SNAPSHOT"
           echo "Next version: $NEXT_VERSION"
+
+          # Validate the computed next version
+          if ! echo "$NEXT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$'; then
+            echo "ERROR: Computed invalid next version '$NEXT_VERSION'"
+            exit 1
+          fi
 
           # Update build.gradle.kts to next SNAPSHOT version
           sed -i 's/version = ".*"/version = "'$NEXT_VERSION'"/' build.gradle.kts
