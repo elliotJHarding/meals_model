@@ -561,6 +561,72 @@ components:
           additionalProperties: true
           description: Updated context if AI identified important preferences
 
+    # Ingredient Suggestion schemas
+    ExistingIngredient:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+        unitCode:
+          type: string
+          description: Unit code (e.g., "tsp", "g", "cup")
+
+    SuggestedIngredient:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+        unitCode:
+          type: string
+          description: Unit code matching system unit codes
+
+    SuggestIngredientsRequest:
+      type: object
+      required:
+        - mealName
+      properties:
+        mealName:
+          type: string
+        mealDescription:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tag names like "vegetarian", "pasta"
+        serves:
+          type: integer
+          format: int32
+        recipeUrl:
+          type: string
+        existingIngredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExistingIngredient'
+
+    SuggestIngredientsResponse:
+      type: object
+      required:
+        - ingredients
+      properties:
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuggestedIngredient'
+        reasoning:
+          type: string
+          description: Brief explanation of the suggestions
+
 paths:
   # Authentication Endpoints
   /auth/login:
@@ -1195,3 +1261,61 @@ paths:
           description: Invalid request
         '500':
           description: Planning failed
+
+  /ai/suggest-ingredients:
+    post:
+      operationId: suggestIngredientsProxy
+      tags:
+        - Meal Planning
+      summary: Suggest ingredients for a meal using AI
+      description: Proxies to AI service to generate ingredient suggestions based on meal details
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestIngredientsRequest'
+      responses:
+        '200':
+          description: Successfully generated ingredient suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestIngredientsResponse'
+        '401':
+          description: Unauthorized - invalid or missing OAuth token
+        '400':
+          description: Invalid request
+        '500':
+          description: Suggestion generation failed
+
+  /suggest-ingredients:
+    post:
+      operationId: suggestIngredients
+      tags:
+        - Ingredient Suggestions
+      summary: Suggest ingredients for a meal using AI
+      description: Uses AI to generate ingredient suggestions based on meal name, description, tags, and existing ingredients
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestIngredientsRequest'
+      responses:
+        '200':
+          description: Successfully generated ingredient suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestIngredientsResponse'
+        '401':
+          description: Unauthorized - invalid or missing OAuth token
+        '400':
+          description: Invalid request
+        '500':
+          description: Suggestion generation failed
