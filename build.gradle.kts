@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.harding.meals"
-version = "1.0.3"
+version = "1.0.4-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -130,8 +130,11 @@ val prepareTypeScriptPackage by tasks.registering(Copy::class) {
         if (packageJson.exists()) {
             val content = packageJson.readText()
 
-            // Update package.json with GitHub repository and publishConfig
+            // Update package.json with GitHub repository and publishConfig.
+            // axios is held below 1.19: from 1.19.0 its types fail this package's
+            // declaration build with TS2527 on createRequestFunction (TypeScript 4.9).
             val updatedContent = content
+                .replace(Regex("\"axios\": \"[^\"]*\""), "\"axios\": \"~1.18.0\"")
                 .replace(
                     "\"repository\": {",
                     "\"repository\": {\n    \"type\": \"git\",\n    \"url\": \"https://github.com/elliotJHarding/meals_model.git\"\n  },\n  \"publishConfig\": {\n    \"registry\": \"https://npm.pkg.github.com\"\n  },\n  \"_oldRepository\": {"
