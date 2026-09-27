@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.harding.meals"
-version = "1.0.4"
+version = "1.0.5-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
