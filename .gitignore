@@ -29,3 +29,7 @@ package-lock.json
 *.tmp
 *.swp
 *~
+.classpath
+.project
+.settings/
+bin/
