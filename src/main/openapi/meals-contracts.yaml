@@ -281,6 +281,10 @@ components:
         token:
           type: string
           description: Google OAuth token
+        authCode:
+          type: string
+          nullable: true
+          description: Native offlineAccess serverAuthCode, exchanged server-side for an offline refresh token; omitted by web clients
 
     LoginResponse:
       type: object
